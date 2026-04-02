@@ -1,6 +1,8 @@
 import { Aniversariante } from '../types';
 
-const STORAGE_KEY = 'dashboard_aniversariantes_v2';
+export const STORAGE_KEY = 'dashboard_aniversariantes_v2';
+export const SEED_VERSION_KEY = 'birthday_seed_version';
+export const CURRENT_SEED_VERSION = 3;
 
 const DEFAULT_ANIVERSARIANTES: Aniversariante[] = [
   { id: '1', name: 'Ana Luiza', unidade: 'MUR', data: '2026-04-11', status: 'Aguardando', foto: '', posicao: '' },
@@ -79,18 +81,30 @@ const DEFAULT_ANIVERSARIANTES: Aniversariante[] = [
 ];
 
 export const loadAniversariantes = (): Aniversariante[] => {
+  const seedVersion = localStorage.getItem(SEED_VERSION_KEY);
   const stored = localStorage.getItem(STORAGE_KEY);
+  
+  // If seed version is missing or old, force reload from DEFAULT_ANIVERSARIANTES
+  if (!seedVersion || parseInt(seedVersion) < CURRENT_SEED_VERSION) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_ANIVERSARIANTES));
+    localStorage.setItem(SEED_VERSION_KEY, CURRENT_SEED_VERSION.toString());
+    return DEFAULT_ANIVERSARIANTES;
+  }
+
   if (stored) {
     try {
       const data = JSON.parse(stored);
-      // Migration: Rename 'entrega' to 'data'
-      return data.map((item: any) => {
-        if (item.entrega && !item.data) {
-          const { entrega, ...rest } = item;
-          return { ...rest, data: entrega };
-        }
-        return item;
-      });
+      if (Array.isArray(data)) {
+        // Migration: Rename 'entrega' to 'data'
+        return data.map((item: any) => {
+          if (item.entrega && !item.data) {
+            const { entrega, ...rest } = item;
+            return { ...rest, data: entrega };
+          }
+          return item;
+        });
+      }
+      return data;
     } catch (e) {
       console.error('Error parsing aniversariantes from localStorage', e);
     }

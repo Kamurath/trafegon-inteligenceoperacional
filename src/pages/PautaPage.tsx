@@ -3,7 +3,7 @@ import { motion, AnimatePresence, Reorder } from 'motion/react';
 import { Task, AppSettings } from '../types';
 import { loadTasks, saveTasks } from '../lib/taskUtils';
 import { loadSettings } from '../lib/settingsUtils';
-import { X, Trash2, Edit2, Check, GripVertical, Plus, Filter, MoreVertical, ChevronRight, ChevronLeft, ChevronUp, ChevronDown } from 'lucide-react';
+import { X, Trash2, Edit2, Check, GripVertical, Plus, Filter, MoreVertical, ChevronRight, ChevronLeft, ChevronUp, ChevronDown, StickyNote } from 'lucide-react';
 import { getContrastColor } from '../constants';
 
 interface PautaPageProps {
@@ -24,6 +24,9 @@ export const PautaPage: React.FC<PautaPageProps> = ({ searchQuery, refreshKey })
   const longPressTimer = React.useRef<NodeJS.Timeout | null>(null);
   const [isReordering, setIsReordering] = useState(false);
   const [tempTask, setTempTask] = useState<Task | null>(null);
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+  const [selectedTaskForNotes, setSelectedTaskForNotes] = useState<Task | null>(null);
+  const [noteText, setNoteText] = useState('');
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '-';
@@ -115,6 +118,7 @@ export const PautaPage: React.FC<PautaPageProps> = ({ searchQuery, refreshKey })
     status: 'Em andamento',
     entrega: '',
     originalEntrega: '',
+    notes: '',
   });
 
   useEffect(() => {
@@ -190,6 +194,7 @@ export const PautaPage: React.FC<PautaPageProps> = ({ searchQuery, refreshKey })
       status: 'Em andamento',
       entrega: '',
       originalEntrega: '',
+      notes: '',
     });
     setIsModalOpen(true);
   };
@@ -209,6 +214,7 @@ export const PautaPage: React.FC<PautaPageProps> = ({ searchQuery, refreshKey })
       status: task.status,
       entrega: task.entrega,
       originalEntrega: task.originalEntrega || '',
+      notes: task.notes || '',
     });
     setIsModalOpen(true);
   };
@@ -278,6 +284,24 @@ export const PautaPage: React.FC<PautaPageProps> = ({ searchQuery, refreshKey })
     });
 
     setTasks(sortedTasks);
+  };
+
+  const handleOpenNotes = (e: React.MouseEvent, task: Task) => {
+    e.stopPropagation();
+    setSelectedTaskForNotes(task);
+    setNoteText(task.notes || '');
+    setIsNotesModalOpen(true);
+  };
+
+  const handleSaveNotes = () => {
+    if (selectedTaskForNotes) {
+      const updatedTasks = tasks.map(t => 
+        t.id === selectedTaskForNotes.id ? { ...t, notes: noteText } : t
+      );
+      setTasks(updatedTasks);
+      setIsNotesModalOpen(false);
+      setSelectedTaskForNotes(null);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -563,12 +587,21 @@ export const PautaPage: React.FC<PautaPageProps> = ({ searchQuery, refreshKey })
                                 <GripVertical className="w-3 h-3 text-blue-500" />
                               )}
                               {!isReordering && (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setDeletingId(task.id); }}
-                                  className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
-                                >
-                                  <Trash2 className="w-2.5 h-2.5" />
-                                </button>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={(e) => handleOpenNotes(e, task)}
+                                    className={`p-0.5 transition-colors ${task.notes ? 'text-blue-500' : 'text-gray-300 hover:text-blue-500'}`}
+                                    title="Anotações"
+                                  >
+                                    <StickyNote className="w-2.5 h-2.5" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setDeletingId(task.id); }}
+                                    className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
+                                  >
+                                    <Trash2 className="w-2.5 h-2.5" />
+                                  </button>
+                                </div>
                               )}
                             </div>
                           </div>
@@ -646,6 +679,135 @@ export const PautaPage: React.FC<PautaPageProps> = ({ searchQuery, refreshKey })
 
         {/* Desktop Rows */}
         <Reorder.Group axis="y" values={filteredTasks} onReorder={handleReorder} className="hidden lg:block space-y-2">
+          {filteredTasks.map((task) => {
+            const index = tasks.findIndex(t => t.id === task.id);
+            const isEditing = editingRowId === task.id;
+            
+            return (
+              <Reorder.Item
+                key={task.id}
+                value={task}
+                className={`grid grid-cols-[40px_3fr_0.8fr_0.8fr_0.8fr_0.8fr_0.4fr_80px] gap-2 items-stretch group transition-all ${
+                  isEditing ? 'bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500/20' : ''
+                }`}
+              >
+                {/* Grip */}
+                <div className="bg-white/5 border border-gray-100 dark:border-gray-800 rounded-l-xl flex items-center justify-center cursor-grab active:cursor-grabbing">
+                  <GripVertical className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors" />
+                </div>
+
+                {/* Task Title */}
+                <div className="bg-[#050714] dark:bg-black text-white px-4 py-3 text-sm font-medium flex items-center min-w-0">
+                  <div 
+                    className="cursor-text w-full truncate"
+                    onClick={() => handleModalEdit(task)}
+                  >
+                    {task.title}
+                  </div>
+                </div>
+
+                {/* Unidade */}
+                <div 
+                  className="flex items-center justify-center text-xs font-bold py-2 px-2 border border-gray-100 dark:border-gray-800"
+                  style={{ 
+                    backgroundColor: getUnitColor(task.unidade),
+                    color: getContrastColor(getUnitColor(task.unidade))
+                  }}
+                >
+                  <div className="cursor-pointer w-full text-center" onClick={() => handleModalEdit(task)}>
+                    {task.unidade}
+                  </div>
+                </div>
+
+                {/* Solicitante */}
+                <div 
+                  className="flex items-center justify-center text-xs font-bold py-2 px-2 border border-gray-100 dark:border-gray-800"
+                  style={{ 
+                    backgroundColor: getSolicitanteColor(task.solicitante),
+                    color: getContrastColor(getSolicitanteColor(task.solicitante))
+                  }}
+                >
+                  <div className="cursor-pointer w-full text-center" onClick={() => handleModalEdit(task)}>
+                    {task.solicitante}
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 flex items-center justify-center p-1">
+                  <button
+                    onClick={() => handleToggleStatus(task.id)}
+                    className="w-full py-2 rounded-lg text-[10px] font-bold text-center transition-colors"
+                    style={{ 
+                      backgroundColor: getStatusColor(task.status),
+                      color: getContrastColor(getStatusColor(task.status))
+                    }}
+                  >
+                    {task.status}
+                  </button>
+                </div>
+
+                {/* Entrega */}
+                <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 flex items-center justify-center p-1">
+                  <div 
+                    onClick={() => handleModalEdit(task)}
+                    className={`w-full py-2 rounded-lg text-[10px] font-bold text-center cursor-text ${
+                      getDeliveryStyle(task.entrega, task.status)
+                    }`}
+                  >
+                    {formatDate(task.entrega)}
+                  </div>
+                </div>
+
+                {/* Position */}
+                <div className="bg-[#3B82F6] text-white flex items-center justify-center text-xs font-bold py-3">
+                  {(index + 1).toString().padStart(2, '0')}
+                </div>
+
+                {/* Actions */}
+                <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 flex items-center justify-center gap-2 rounded-r-xl py-3 px-2">
+                  <button
+                    onClick={(e) => handleOpenNotes(e, task)}
+                    className={`p-1.5 rounded-full transition-colors ${task.notes ? 'bg-blue-50 text-blue-500' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-blue-500'}`}
+                    title="Anotações"
+                  >
+                    <StickyNote className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleModalEdit(task)}
+                    className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-400 hover:text-blue-500 transition-colors"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  {deletingId === task.id ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleDeleteTask(task.id)}
+                        className="p-1.5 bg-red-50 dark:bg-red-900/30 text-red-600 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                        title="Confirmar"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setDeletingId(null)}
+                        className="p-1.5 bg-gray-50 dark:bg-gray-800 text-gray-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        title="Cancelar"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setDeletingId(task.id)}
+                      className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-400 hover:text-red-500 transition-colors"
+                      title="Excluir"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </Reorder.Item>
+            );
+          })}
 
           {/* Add Task Button Row */}
           <div className="hidden lg:grid grid-cols-[40px_3fr_0.8fr_0.8fr_0.8fr_0.8fr_0.4fr_80px] gap-2 items-stretch">
@@ -813,6 +975,64 @@ export const PautaPage: React.FC<PautaPageProps> = ({ searchQuery, refreshKey })
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Notes Modal */}
+      <AnimatePresence>
+        {isNotesModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+            >
+              <div className="bg-[#050714] dark:bg-black p-6 text-white flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <StickyNote className="w-5 h-5 text-blue-400" />
+                  <h3 className="text-lg font-bold">Anotações</h3>
+                </div>
+                <button onClick={() => setIsNotesModalOpen(false)} className="hover:opacity-70 transition-opacity">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-gray-400">Tarefa</label>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white">{selectedTaskForNotes?.title}</p>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-gray-400">Observações</label>
+                  <textarea
+                    autoFocus
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    className="w-full h-40 px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl outline-none focus:border-blue-500 transition-all text-sm dark:text-white resize-none"
+                    placeholder="Digite aqui as observações sobre esta tarefa..."
+                  />
+                </div>
+
+                <div className="pt-2 flex gap-3">
+                  <button
+                    onClick={() => setIsNotesModalOpen(false)}
+                    className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSaveNotes}
+                    className="flex-1 py-3 bg-[#050714] dark:bg-white dark:text-[#050714] text-white rounded-xl font-bold hover:bg-gray-900 dark:hover:bg-gray-100 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Check className="w-4 h-4" />
+                    Salvar
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

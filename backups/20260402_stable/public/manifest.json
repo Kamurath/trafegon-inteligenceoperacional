@@ -1,0 +1,17 @@
+{
+  "name": "Tr\u00e1fegON",
+  "short_name": "Tr\u00e1fegON",
+  "description": "Sistema de Gest\u00e3o de Pautas e Aniversariantes",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050714",
+  "theme_color": "#050714",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,6 +1,8 @@
 import { Task } from '../types';
 
-const STORAGE_KEY = 'pauta_tasks_v5';
+export const STORAGE_KEY = 'pauta_tasks_v5';
+export const SEED_VERSION_KEY = 'pauta_tasks_seed_version';
+export const CURRENT_SEED_VERSION = 6;
 
 export const defaultTasks: Task[] = [
   { id: '01', title: 'REVISAR CONTAS PESSOAIS', unidade: 'PESSOAL', solicitante: 'Fritz', status: 'Em andamento', entrega: '2026-04-01', posicao: '1' },
@@ -20,7 +22,16 @@ export const defaultTasks: Task[] = [
 ];
 
 export const loadTasks = (): Task[] => {
+  const seedVersion = localStorage.getItem(SEED_VERSION_KEY);
   const stored = localStorage.getItem(STORAGE_KEY);
+  
+  // If seed version is missing or old, force reload from defaultTasks
+  if (!seedVersion || parseInt(seedVersion) < CURRENT_SEED_VERSION) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultTasks));
+    localStorage.setItem(SEED_VERSION_KEY, CURRENT_SEED_VERSION.toString());
+    return defaultTasks;
+  }
+
   if (stored) {
     try {
       return JSON.parse(stored);
@@ -29,7 +40,6 @@ export const loadTasks = (): Task[] => {
     }
   }
 
-  // If no v4 data, return the new default real task list
   return defaultTasks;
 };
 

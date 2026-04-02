@@ -1,7 +1,8 @@
 import { AppData, BackupSnapshot } from '../types';
-import { loadTasks, saveTasks } from './taskUtils';
-import { loadAniversariantes, saveAniversariantes } from './birthdayUtils';
+import { loadTasks, saveTasks, SEED_VERSION_KEY as TASK_SEED_KEY, CURRENT_SEED_VERSION as TASK_SEED_VERSION } from './taskUtils';
+import { loadAniversariantes, saveAniversariantes, SEED_VERSION_KEY as BIRTHDAY_SEED_KEY, CURRENT_SEED_VERSION as BIRTHDAY_SEED_VERSION } from './birthdayUtils';
 import { loadUnitInfo, saveUnitInfo } from './infoUtils';
+import { loadSettings, saveSettings } from './settingsUtils';
 
 const SNAPSHOTS_KEY = 'trafegon_backups';
 const LAST_MANUAL_BACKUP_KEY = 'trafegon_last_manual_backup';
@@ -12,14 +13,21 @@ export const getFullAppData = (): AppData => {
     tasks: loadTasks(),
     birthdays: loadAniversariantes(),
     units: loadUnitInfo(),
+    settings: loadSettings(),
     lastManualBackup: localStorage.getItem(LAST_MANUAL_BACKUP_KEY) || undefined,
   };
 };
 
 export const saveFullAppData = (data: AppData) => {
-  saveTasks(data.tasks);
-  saveAniversariantes(data.birthdays);
-  saveUnitInfo(data.units);
+  if (data.tasks) saveTasks(data.tasks);
+  if (data.birthdays) saveAniversariantes(data.birthdays);
+  if (data.units) saveUnitInfo(data.units);
+  if (data.settings) saveSettings(data.settings);
+  
+  // Update seed versions to prevent data loss on next reload
+  localStorage.setItem(TASK_SEED_KEY, TASK_SEED_VERSION.toString());
+  localStorage.setItem(BIRTHDAY_SEED_KEY, BIRTHDAY_SEED_VERSION.toString());
+
   if (data.lastManualBackup) {
     localStorage.setItem(LAST_MANUAL_BACKUP_KEY, data.lastManualBackup);
   }
@@ -47,7 +55,7 @@ export const exportData = () => {
   const date = new Date().toISOString().split('T')[0];
   
   a.href = url;
-  a.download = `trafegon-backup-${date}.json`;
+  a.download = `trafegon-backup-${date}.xml`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -66,8 +74,8 @@ export const importData = async (file: File): Promise<boolean> => {
         const content = e.target?.result as string;
         const data = JSON.parse(content) as AppData;
         
-        // Basic validation
-        if (data.tasks && data.birthdays && data.units) {
+        // Basic validation - check if at least tasks or birthdays exist
+        if ((data.tasks && Array.isArray(data.tasks)) || (data.birthdays && Array.isArray(data.birthdays))) {
           saveFullAppData(data);
           resolve(true);
         } else {

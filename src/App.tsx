@@ -96,11 +96,9 @@ export default function App() {
   });
 
   useEffect(() => {
-    // Force reset to v5 if not already done to ensure the new real task list is loaded
-    if (!localStorage.getItem('pauta_tasks_v5_reset')) {
-      localStorage.removeItem('pauta_tasks_v3');
-      localStorage.removeItem('pauta_tasks_v4');
-      localStorage.removeItem('pauta_tasks_v2');
+    // Initial load check - ensure refreshKey is incremented if we need to force a reload
+    const lastReset = localStorage.getItem('pauta_tasks_v5_reset');
+    if (!lastReset) {
       localStorage.setItem('pauta_tasks_v5_reset', 'true');
       setRefreshKey(prev => prev + 1);
     }

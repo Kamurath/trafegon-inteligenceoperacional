@@ -9,6 +9,7 @@ export interface Task {
   entrega: string;
   originalEntrega?: string;
   posicao: string;
+  notes?: string;
 }
 
 export interface Aniversariante {
@@ -60,6 +61,7 @@ export interface AppData {
   tasks: Task[];
   birthdays: Aniversariante[];
   units: Record<string, UnitInfo>;
+  settings?: AppSettings;
   lastManualBackup?: string; // ISO Date
 }
 
