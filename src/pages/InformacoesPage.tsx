@@ -11,11 +11,11 @@ const InfoRow: React.FC<{
   isEditing?: boolean;
   onChange?: (val: string) => void;
 }> = ({ label, value, isLink, isEditing, onChange }) => (
-  <div className="flex flex-col lg:flex-row gap-2">
-    <div className="w-full lg:w-48 bg-[#050714] dark:bg-black text-white px-6 py-2 lg:py-3 rounded-xl text-[10px] font-bold uppercase flex items-center justify-start lg:justify-end lg:text-right">
+  <div className="flex flex-col lg:flex-row gap-0.5 lg:gap-2">
+    <div className="w-full lg:w-48 bg-[#050714] dark:bg-black text-white px-2 py-1 lg:px-6 lg:py-3 rounded-md text-[8px] lg:text-[10px] font-bold uppercase flex items-center justify-start lg:justify-end lg:text-right">
       {label}
     </div>
-    <div className="flex-1 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-6 py-3 rounded-xl text-sm font-medium flex items-center min-h-[48px] dark:text-gray-200">
+    <div className="flex-1 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-2 py-1 lg:px-6 lg:py-3 rounded-md text-[10px] lg:text-sm font-medium flex items-center min-h-[28px] lg:min-h-[48px] dark:text-gray-200">
       {isEditing ? (
         <input
           type="text"
@@ -96,7 +96,7 @@ export const InformacoesPage: React.FC<InformacoesPageProps> = ({ refreshKey }) 
       className="space-y-6 px-2 pb-10"
     >
       {/* Unit Selection */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-2 px-2">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-hide -mx-2 px-2 snap-x snap-mandatory">
         {OFFICIAL_UNITS.map((unit) => (
           <button
             key={unit.id}
@@ -104,7 +104,7 @@ export const InformacoesPage: React.FC<InformacoesPageProps> = ({ refreshKey }) 
               setSelectedUnitId(unit.id);
               setIsEditing(false);
             }}
-            className={`px-4 py-1.5 rounded-full text-[10px] font-bold transition-all border ${
+            className={`px-3 py-1 rounded-full text-[9px] font-bold transition-all border whitespace-nowrap snap-start ${
               selectedUnitId === unit.id
                 ? 'bg-[#3B82F6] text-white border-[#3B82F6]'
                 : 'bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
@@ -117,7 +117,7 @@ export const InformacoesPage: React.FC<InformacoesPageProps> = ({ refreshKey }) 
 
       {/* Unit Header */}
       <div className="relative group">
-        <div className="bg-[#050714] dark:bg-black text-white py-3 rounded-lg text-center text-xs font-bold tracking-widest uppercase">
+        <div className="bg-[#050714] dark:bg-black text-white py-3 px-4 rounded-lg text-left lg:text-center text-xs font-bold tracking-widest uppercase">
           {selectedUnit.name}
         </div>
         {!isEditing && (

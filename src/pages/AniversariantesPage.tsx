@@ -157,19 +157,35 @@ export const AniversariantesPage: React.FC<AniversariantesPageProps> = ({ search
     setIsModalOpen(false);
   };
 
+  const groupedBirthdays = useMemo(() => {
+    const groups: { [key: string]: Aniversariante[] } = {};
+    
+    filteredBirthdays.forEach(item => {
+      const date = new Date(item.data + 'T00:00:00');
+      const monthName = date.toLocaleDateString('pt-BR', { month: 'long' });
+      const year = date.getFullYear();
+      const key = `Aniversariantes de ${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${year}`;
+
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(item);
+    });
+
+    return groups;
+  }, [filteredBirthdays]);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="space-y-6 px-2"
+      className="space-y-6 px-2 pb-20"
     >
       {/* Filters */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-2 px-2">
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-2 px-2">
           {/* 1. Mês Atual */}
           <button
             onClick={() => setFilter('Mês Atual')}
-            className={`px-6 py-1.5 rounded-full text-xs font-bold shadow-sm transition-all whitespace-nowrap ${
+            className={`px-4 py-1 rounded-full text-[10px] font-bold shadow-sm transition-all whitespace-nowrap ${
               filter === 'Mês Atual'
                 ? 'bg-[#FDBA74] text-[#050714]'
                 : 'bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -183,7 +199,7 @@ export const AniversariantesPage: React.FC<AniversariantesPageProps> = ({ search
             <button
               key={s.id}
               onClick={() => setFilter(s.name)}
-              className={`px-6 py-1.5 rounded-full text-xs font-bold shadow-sm transition-all whitespace-nowrap ${
+              className={`px-4 py-1 rounded-full text-[10px] font-bold shadow-sm transition-all whitespace-nowrap ${
                 filter === s.name
                   ? 'shadow-md'
                   : 'bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -199,7 +215,7 @@ export const AniversariantesPage: React.FC<AniversariantesPageProps> = ({ search
             <button
               key={s.id}
               onClick={() => setFilter(s.name)}
-              className={`px-6 py-1.5 rounded-full text-xs font-bold shadow-sm transition-all whitespace-nowrap ${
+              className={`px-4 py-1 rounded-full text-[10px] font-bold shadow-sm transition-all whitespace-nowrap ${
                 filter === s.name
                   ? 'shadow-md'
                   : 'bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -215,7 +231,7 @@ export const AniversariantesPage: React.FC<AniversariantesPageProps> = ({ search
             <button
               key={s.id}
               onClick={() => setFilter(s.name)}
-              className={`px-6 py-1.5 rounded-full text-xs font-bold shadow-sm transition-all whitespace-nowrap ${
+              className={`px-4 py-1 rounded-full text-[10px] font-bold shadow-sm transition-all whitespace-nowrap ${
                 filter === s.name
                   ? 'shadow-md'
                   : 'bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -229,7 +245,7 @@ export const AniversariantesPage: React.FC<AniversariantesPageProps> = ({ search
           {/* 5. Todos */}
           <button
             onClick={() => setFilter('Todos')}
-            className={`px-6 py-1.5 rounded-full text-xs font-bold shadow-sm transition-all whitespace-nowrap ${
+            className={`px-4 py-1 rounded-full text-[10px] font-bold shadow-sm transition-all whitespace-nowrap ${
               filter === 'Todos'
                 ? 'bg-[#050714] dark:bg-white dark:text-[#050714] text-white'
                 : 'bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -285,7 +301,105 @@ export const AniversariantesPage: React.FC<AniversariantesPageProps> = ({ search
         </div>
 
         {/* Rows */}
-        <div className="space-y-4">
+        <div className="lg:hidden space-y-6">
+          {Object.entries(groupedBirthdays).map(([groupName, groupItems]: [string, Aniversariante[]]) => (
+            <div key={groupName} className="space-y-3">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 px-2 flex items-center gap-2">
+                <div className="w-1 h-1 bg-orange-400 rounded-full" />
+                {groupName}
+              </h3>
+              <div className="space-y-2">
+                {groupItems.map((item) => (
+                  <div 
+                    key={item.id}
+                    className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden active:scale-[0.98] transition-all touch-none"
+                    onClick={() => handleEditBirthday(item)}
+                  >
+                    <div className="p-2 flex gap-2.5">
+                      {/* Photo/Icon */}
+                      <div className="flex-shrink-0">
+                        {item.foto && item.foto.startsWith('http') ? (
+                          <img 
+                            src={item.foto} 
+                            alt={item.name}
+                            referrerPolicy="no-referrer"
+                            className="w-7 h-7 rounded-full object-cover border-2 border-orange-100 dark:border-orange-900/30 shadow-sm"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 bg-orange-50 dark:bg-orange-900/20 text-orange-500 rounded-full flex items-center justify-center shadow-sm">
+                            <Cake className="w-3.5 h-3.5" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0 space-y-0.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="text-[10px] font-bold text-gray-900 dark:text-white leading-tight break-words">
+                            {item.name}
+                          </h4>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setDeletingId(item.id); }}
+                              className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
+                            >
+                              <Trash2 className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-1 text-[6.5px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                          <span 
+                            className="px-1 py-0.5 rounded"
+                            style={{ 
+                              backgroundColor: getUnitColor(item.unidade),
+                              color: getContrastColor(getUnitColor(item.unidade))
+                            }}
+                          >
+                            {item.unidade}
+                          </span>
+                          <span>|</span>
+                          <span 
+                            className="px-1 py-0.5 rounded"
+                            style={{ 
+                              backgroundColor: getStatusColor(item.status),
+                              color: getContrastColor(getStatusColor(item.status))
+                            }}
+                          >
+                            {item.status}
+                          </span>
+                          <span>|</span>
+                          <div className="flex items-center gap-1">
+                            <Cake className="w-2 h-2 text-orange-400" />
+                            <span className="text-[6.5px] font-black uppercase tracking-widest text-gray-400">
+                              {item.data.split('-').reverse().slice(0, 2).join('/')}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Deletion Confirmation */}
+                    {deletingId === item.id && (
+                      <div className="p-4 bg-red-50 dark:bg-red-900/20 border-t border-red-100 dark:border-red-900/30">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">Excluir aniversariante?</span>
+                          <div className="flex gap-2">
+                            <button onClick={() => handleDeleteBirthday(item.id)} className="px-4 py-1.5 bg-red-600 text-white text-[9px] font-black uppercase tracking-widest rounded-lg">Sim</button>
+                            <button onClick={() => setDeletingId(null)} className="px-4 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[9px] font-black uppercase tracking-widest rounded-lg">Não</button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop Rows */}
+        <div className="hidden lg:block space-y-2">
           {filteredBirthdays.map((item) => {
             const isEditing = editingBirthday?.id === item.id;
             return (
@@ -295,198 +409,104 @@ export const AniversariantesPage: React.FC<AniversariantesPageProps> = ({ search
                   isEditing ? 'bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500/20' : ''
                 }`}
               >
-                {/* Mobile Header */}
-                <div className="flex lg:hidden items-center justify-between p-4 bg-[#050714] dark:bg-black text-white">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white">
-                      <Cake className="w-4 h-4" />
-                    </div>
-                    <span className="text-sm font-bold truncate max-w-[200px]">{item.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleEditBirthday(item)}
-                      className="p-2 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => setDeletingId(item.id)}
-                      className="p-2 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Desktop Name (Hidden on Mobile) */}
+                {/* Desktop Name */}
                 <div className="hidden lg:flex bg-[#050714] dark:bg-black text-white px-4 py-3 text-sm font-medium items-center min-w-0 rounded-xl lg:rounded-none">
                   <div className="cursor-text w-full break-words" onClick={() => handleEditBirthday(item)}>
                     {item.name}
                   </div>
                 </div>
                 
-                {/* Content Area */}
-                <div className="p-4 lg:p-0 lg:contents">
-                  <div className="grid grid-cols-1 lg:contents gap-3">
-                    {/* Mobile Details List */}
-                    <div className="lg:hidden space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase text-gray-400">Unidade</span>
-                        <div 
-                          className="px-3 py-1 rounded-full text-[10px] font-bold"
-                          style={{ 
-                            backgroundColor: getUnitColor(item.unidade),
-                            color: getContrastColor(getUnitColor(item.unidade))
-                          }}
-                        >
-                          {item.unidade}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase text-gray-400">Foto</span>
-                        <div className="px-3 py-1 bg-gray-50 dark:bg-gray-800 rounded-full text-[10px] font-bold text-blue-500 italic underline">
-                          {item.foto && item.foto.startsWith('http') ? (
-                            <a href={item.foto} target="_blank" rel="noopener noreferrer">Ver Foto</a>
-                          ) : (
-                            <span className="text-gray-300 dark:text-gray-600 no-underline">Sem Foto</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase text-gray-400">Status</span>
-                        <button
-                          onClick={() => handleToggleStatus(item.id)}
-                          className="px-3 py-1 rounded-full text-[10px] font-bold transition-all"
-                          style={{ 
-                            backgroundColor: getStatusColor(item.status),
-                            color: getContrastColor(getStatusColor(item.status))
-                          }}
-                        >
-                          {item.status}
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase text-gray-400">Data</span>
-                        <div 
-                          className={`px-3 py-1 rounded-full text-[10px] font-bold ${
-                            formatDate(item.data).toUpperCase().includes('HOJE') ? 'bg-[#86EFAC] text-[#166534]' : 'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
-                          }`}
-                        >
-                          {formatDate(item.data)}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Desktop Cells (Hidden on Mobile) */}
-                    <div 
-                      className="hidden lg:flex border border-gray-100 dark:border-gray-800 items-center justify-center text-[10px] lg:text-xs font-bold rounded-lg py-2 px-2"
-                      style={{ 
-                        backgroundColor: getUnitColor(item.unidade),
-                        color: getContrastColor(getUnitColor(item.unidade))
-                      }}
-                    >
-                      <div className="cursor-pointer w-full text-center" onClick={() => handleEditBirthday(item)}>
-                        {item.unidade}
-                      </div>
-                    </div>
-
-                    <div className="hidden lg:flex bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 items-center justify-center p-1 rounded-lg">
-                      <div className="bg-white dark:bg-gray-900 flex items-center justify-center text-[10px] font-bold text-blue-500 italic underline rounded-lg py-1 cursor-pointer hover:text-blue-600">
-                        {item.foto && item.foto.startsWith('http') ? (
-                          <a href={item.foto} target="_blank" rel="noopener noreferrer">
-                            Ver Foto
-                          </a>
-                        ) : (
-                          <span className="text-gray-300 dark:text-gray-600 no-underline cursor-default">Sem Foto</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="hidden lg:flex bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 items-center justify-center p-1 rounded-lg">
-                      <button
-                        onClick={() => handleToggleStatus(item.id)}
-                        className="w-full py-1.5 rounded-lg text-[10px] font-bold text-center transition-colors"
-                        style={{ 
-                          backgroundColor: getStatusColor(item.status),
-                          color: getContrastColor(getStatusColor(item.status))
-                        }}
-                      >
-                        {item.status}
-                      </button>
-                    </div>
-
-                    <div className="hidden lg:flex bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 items-center justify-center p-1 rounded-lg">
-                      <div 
-                        onClick={() => handleEditBirthday(item)}
-                        className={`w-full py-1.5 rounded-lg text-[10px] font-bold text-center cursor-text ${
-                          formatDate(item.data).toUpperCase().includes('HOJE') ? 'bg-[#86EFAC] text-[#166534]' : 'text-gray-500 dark:text-gray-400'
-                        }`}
-                      >
-                        {formatDate(item.data)}
-                      </div>
-                    </div>
+                {/* Desktop Cells */}
+                <div className="hidden lg:flex border border-gray-100 dark:border-gray-800 items-center justify-center text-[10px] lg:text-xs font-bold rounded-lg py-2 px-2"
+                  style={{ 
+                    backgroundColor: getUnitColor(item.unidade),
+                    color: getContrastColor(getUnitColor(item.unidade))
+                  }}
+                >
+                  <div className="cursor-pointer w-full text-center" onClick={() => handleEditBirthday(item)}>
+                    {item.unidade}
                   </div>
+                </div>
 
-                  {/* Desktop Position */}
-                  <div className="hidden lg:flex bg-[#3B82F6] text-white items-center justify-center text-xs font-bold py-3">
-                    {(filteredBirthdays.indexOf(item) + 1).toString().padStart(2, '0')}
-                  </div>
-
-                  {/* Desktop Actions */}
-                  <div className="hidden lg:flex bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 items-center justify-center gap-2 rounded-r-xl py-3 px-2">
-                    <button
-                      onClick={() => handleEditBirthday(item)}
-                      className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-400 hover:text-blue-500 transition-colors"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    {deletingId === item.id ? (
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleDeleteBirthday(item.id)}
-                          className="p-1.5 bg-red-50 dark:bg-red-900/30 text-red-600 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
-                          title="Confirmar"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setDeletingId(null)}
-                          className="p-1.5 bg-gray-50 dark:bg-gray-800 text-gray-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                          title="Cancelar"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                <div className="hidden lg:flex bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 items-center justify-center p-1 rounded-lg">
+                  <div className="bg-white dark:bg-gray-900 flex items-center justify-center text-[10px] font-bold text-blue-500 italic underline rounded-lg py-1 cursor-pointer hover:text-blue-600">
+                    {item.foto && item.foto.startsWith('http') ? (
+                      <a href={item.foto} target="_blank" rel="noopener noreferrer">
+                        Ver Foto
+                      </a>
                     ) : (
-                      <button
-                        onClick={() => setDeletingId(item.id)}
-                        className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-400 hover:text-red-500 transition-colors"
-                        title="Excluir"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <span className="text-gray-300 dark:text-gray-600 no-underline cursor-default">Sem Foto</span>
                     )}
                   </div>
                 </div>
 
-                {/* Mobile Deletion Confirmation */}
-                {deletingId === item.id && (
-                  <div className="lg:hidden p-4 bg-red-50 dark:bg-red-900/20 border-t border-red-100 dark:border-red-900/30">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-red-600 dark:text-red-400">Excluir aniversariante?</span>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleDeleteBirthday(item.id)} className="px-4 py-1.5 bg-red-600 text-white text-[10px] font-bold rounded-lg">Sim, excluir</button>
-                        <button onClick={() => setDeletingId(null)} className="px-4 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[10px] font-bold rounded-lg">Não</button>
-                      </div>
-                    </div>
+                <div className="hidden lg:flex bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 items-center justify-center p-1 rounded-lg">
+                  <button
+                    onClick={() => handleToggleStatus(item.id)}
+                    className="w-full py-1.5 rounded-lg text-[10px] font-bold text-center transition-colors"
+                    style={{ 
+                      backgroundColor: getStatusColor(item.status),
+                      color: getContrastColor(getStatusColor(item.status))
+                    }}
+                  >
+                    {item.status}
+                  </button>
+                </div>
+
+                <div className="hidden lg:flex bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 items-center justify-center p-1 rounded-lg">
+                  <div 
+                    onClick={() => handleEditBirthday(item)}
+                    className={`w-full py-1.5 rounded-lg text-[10px] font-bold text-center cursor-text ${
+                      formatDate(item.data).toUpperCase().includes('HOJE') ? 'bg-[#86EFAC] text-[#166534]' : 'text-gray-500 dark:text-gray-400'
+                    }`}
+                  >
+                    {formatDate(item.data)}
                   </div>
-                )}
+                </div>
+
+                {/* Desktop Position */}
+                <div className="hidden lg:flex bg-[#3B82F6] text-white items-center justify-center text-xs font-bold py-3">
+                  {(filteredBirthdays.indexOf(item) + 1).toString().padStart(2, '0')}
+                </div>
+
+                {/* Desktop Actions */}
+                <div className="hidden lg:flex bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 items-center justify-center gap-2 rounded-r-xl py-3 px-2">
+                  <button
+                    onClick={() => handleEditBirthday(item)}
+                    className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-400 hover:text-blue-500 transition-colors"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  {deletingId === item.id ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleDeleteBirthday(item.id)}
+                        className="p-1.5 bg-red-50 dark:bg-red-900/30 text-red-600 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                        title="Confirmar"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setDeletingId(null)}
+                        className="p-1.5 bg-gray-50 dark:bg-gray-800 text-gray-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        title="Cancelar"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setDeletingId(item.id)}
+                      className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-400 hover:text-red-500 transition-colors"
+                      title="Excluir"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
-
-          {/* Add Button Row */}
           <div className="hidden lg:grid grid-cols-[1.5fr_0.5fr_0.5fr_1fr_1fr_0.5fr_80px] gap-2 items-stretch">
             <button
               onClick={handleAddBirthday}

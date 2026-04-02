@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion } from 'motion/react';
 import { Search, Sparkles, Moon, Sun, Mic, MicOff, X, Check, Plus } from 'lucide-react';
 import { Page, AIAction } from '../types';
 import { 
@@ -41,7 +42,9 @@ export const Header: React.FC<HeaderProps> = ({
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
+    const timer = setInterval(() => {
+      setTime(new Date());
+    }, 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -163,16 +166,18 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const formatDate = (date: Date) => {
-    const day = date.getDate();
-    const month = date.toLocaleDateString('pt-BR', { month: 'long' });
-    const year = date.getFullYear();
-    return `${day} ${month} ${year}`;
+    return date.toLocaleDateString('pt-BR', { 
+      day: '2-digit', 
+      month: 'short', 
+      year: 'numeric' 
+    }).replace('.', '');
   };
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
       minute: '2-digit',
+      second: '2-digit',
     });
   };
 
@@ -196,71 +201,83 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="h-auto lg:h-24 px-4 lg:px-10 flex flex-col lg:flex-row lg:items-center justify-between bg-transparent relative z-50 py-4 lg:py-0 gap-4 lg:gap-0">
+    <header className="h-auto lg:h-24 px-0 lg:px-10 flex flex-col lg:flex-row lg:items-center justify-between bg-transparent relative z-50 py-0 lg:py-0 gap-0 lg:gap-0">
       {/* Desktop Title */}
       <div className="hidden lg:flex items-center gap-4">
         <div className="w-1.5 h-8 bg-[#050714] dark:bg-white rounded-full" />
         <h2 className="text-3xl font-bold text-[#050714] dark:text-white tracking-tight">{getTitle()}</h2>
       </div>
 
-      {/* Mobile Top Row: Search and Add Button */}
-      <div className="flex lg:hidden items-center gap-2 w-full order-1">
-        <div className="relative group flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder={getPlaceholder()}
-            value={inputValue}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            disabled={isProcessing}
-            className={`w-full pl-11 pr-24 py-3 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-700 rounded-full shadow-sm border border-gray-100 outline-none text-xs placeholder:text-gray-400 focus:border-gray-200 transition-all ${isProcessing ? 'opacity-50 cursor-wait' : ''} ${assistant.isActive ? 'border-blue-500 ring-2 ring-blue-500/20' : ''}`}
-          />
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-            {recognitionRef.current && (
-              <button
-                onClick={toggleListening}
-                className={`p-1.5 rounded-full transition-colors ${isListening ? 'bg-red-100 text-red-600 animate-pulse' : 'text-gray-400 hover:bg-gray-100'}`}
-                title="Usar voz"
-              >
-                {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-              </button>
-            )}
-            <div className="bg-gradient-to-br from-purple-500 to-blue-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded flex items-center gap-0.5">
-              AI
-              <Sparkles className="w-2 h-2" />
-            </div>
-          </div>
+      {/* Mobile Header (Blue Background) */}
+      <div className="flex lg:hidden flex-col w-full bg-[#0056b3] dark:bg-[#003d7a] pt-3 pb-0 px-3 gap-2 order-1 shadow-md sticky top-0 z-50">
+        {/* Mobile Clock Row */}
+        <div className="flex items-center justify-between px-1 mb-0.5">
+          <span className="text-[8px] font-bold text-white/80 uppercase tracking-widest font-mono">
+            {formatDate(time)} | {formatTime(time)}
+          </span>
+          <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
         </div>
-        
-        <button
-          onClick={handleAddClick}
-          className="p-3 bg-[#050714] dark:bg-white text-white dark:text-[#050714] rounded-full shadow-md hover:opacity-90 transition-all flex-shrink-0"
-          title="Adicionar"
-        >
-          <Plus className="w-5 h-5" />
-        </button>
-      </div>
 
-      {/* Mobile Tabs Row */}
-      <div className="flex lg:hidden items-center justify-between bg-white dark:bg-gray-800 p-1 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm order-2">
-        {[
-          { id: 'pauta', label: 'Pauta' },
-          { id: 'aniversariantes', label: 'Aniversariantes' },
-          { id: 'informacoes', label: 'Informações' }
-        ].map((tab) => (
+        {/* Mobile Top Row: Search, Mic and Add Button */}
+        <div className="flex items-center gap-1.5 w-full">
+          {recognitionRef.current && (
+            <button
+              onClick={toggleListening}
+              className={`p-1.5 rounded-lg transition-all border border-white/10 shadow-sm flex-shrink-0 ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white/10 text-white hover:bg-white/20'}`}
+              title="Usar voz"
+            >
+              {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+            </button>
+          )}
+
+          <div className="relative group flex-1">
+            <input
+              type="text"
+              placeholder={getPlaceholder()}
+              value={inputValue}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              disabled={isProcessing}
+              className={`w-full pl-3 pr-3 py-1.5 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-700 rounded-lg shadow-sm border border-gray-100 outline-none text-[9px] placeholder:text-gray-400 focus:border-gray-200 transition-all ${isProcessing ? 'opacity-50 cursor-wait' : ''} ${assistant.isActive ? 'border-blue-500 ring-2 ring-blue-500/20' : ''}`}
+            />
+          </div>
+          
           <button
-            key={tab.id}
-            onClick={() => onPageChange(tab.id as Page)}
-            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${
-              activePage === tab.id 
-                ? 'bg-[#050714] dark:bg-white text-white dark:text-[#050714] shadow-md' 
-                : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
-            }`}
+            onClick={handleAddClick}
+            className="p-1.5 bg-[#007bff] dark:bg-[#0056b3] text-white rounded-lg shadow-md hover:opacity-90 transition-all flex-shrink-0 border border-white/20"
+            title="Adicionar"
           >
-            {tab.label}
+            <Plus className="w-3.5 h-3.5" />
           </button>
-        ))}
+        </div>
+
+        {/* Mobile Tabs Row */}
+        <div className="flex items-center justify-start gap-5 px-1 pb-1">
+          {[
+            { id: 'pauta', label: 'Pauta' },
+            { id: 'aniversariantes', label: 'Aniversariantes' },
+            { id: 'informacoes', label: 'Informações' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => onPageChange(tab.id as Page)}
+              className={`relative py-1 px-0.5 text-[10px] font-black uppercase tracking-wider transition-all flex-shrink-0 ${
+                activePage === tab.id 
+                  ? 'text-white' 
+                  : 'text-white/50 hover:text-white/80'
+              }`}
+            >
+              {tab.label}
+              {activePage === tab.id && (
+                <motion.div
+                  layoutId="activeTabMobile"
+                  className="absolute -bottom-1 left-0 right-0 h-0.5 bg-white rounded-full"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                />
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Desktop Search */}
@@ -385,8 +402,8 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
 
         <div className="bg-white dark:bg-gray-800 px-6 py-3 rounded-full shadow-sm border border-gray-50 dark:border-gray-700 flex items-center gap-4 font-bold text-sm text-gray-700 dark:text-gray-200">
-          <span>{formatDate(time)} | {formatTime(time)}</span>
-          <div className="w-3 h-3 bg-green-500 rounded-full" />
+          <span className="font-mono">{formatDate(time)} | {formatTime(time)}</span>
+          <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
         </div>
         <div className="flex flex-col items-center leading-[0.8] relative opacity-90">
           <span className="text-[28px] font-black tracking-tighter text-[#050714] dark:text-white">trá</span>

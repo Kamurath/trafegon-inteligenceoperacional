@@ -10,7 +10,7 @@ import { interpretCommand } from './lib/aiCommand';
 import { loadTasks, saveTasks } from './lib/taskUtils';
 import { loadAniversariantes, saveAniversariantes } from './lib/birthdayUtils';
 import { loadUnitInfo, saveUnitInfo } from './lib/infoUtils';
-import { createAutoSnapshot, checkManualBackupNeeded, exportData } from './lib/backupUtils';
+import { createAutoSnapshot, checkManualBackupNeeded, exportData, importData } from './lib/backupUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertCircle, Download, Cake, X as CloseIcon } from 'lucide-react';
 
@@ -94,6 +94,17 @@ export default function App() {
     const saved = localStorage.getItem('trafegon_theme');
     return saved === 'dark';
   });
+
+  useEffect(() => {
+    // Force reset to v5 if not already done to ensure the new real task list is loaded
+    if (!localStorage.getItem('pauta_tasks_v5_reset')) {
+      localStorage.removeItem('pauta_tasks_v3');
+      localStorage.removeItem('pauta_tasks_v4');
+      localStorage.removeItem('pauta_tasks_v2');
+      localStorage.setItem('pauta_tasks_v5_reset', 'true');
+      setRefreshKey(prev => prev + 1);
+    }
+  }, []);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -292,7 +303,7 @@ export default function App() {
           onToggleTheme={() => setIsDarkMode(!isDarkMode)}
         />
         
-        <main className="p-4 lg:p-8 max-w-7xl mx-auto w-full flex-1 relative">
+        <main className="p-3 lg:p-8 max-w-7xl mx-auto w-full flex-1 relative">
           <AnimatePresence>
             <BirthdayNotification refreshKey={refreshKey} />
           </AnimatePresence>
@@ -303,28 +314,24 @@ export default function App() {
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="mb-6 bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-center justify-between shadow-sm"
+                className="mb-2 bg-amber-50 border border-amber-100 rounded-lg p-2 flex items-center gap-3 shadow-sm lg:rounded-2xl lg:p-4 lg:mb-6 lg:justify-between"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
-                    <AlertCircle className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-amber-900">Backup manual pendente</h4>
-                    <p className="text-xs text-amber-700">Você ainda não exportou o backup manual de hoje. Proteja seus dados!</p>
-                  </div>
-                </div>
                 <button
                   onClick={() => {
                     exportData();
                     setRefreshKey(prev => prev + 1);
                     showFeedback('Backup exportado com sucesso');
                   }}
-                  className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-bold hover:bg-amber-700 transition-colors shadow-sm"
+                  className="px-2 py-1 lg:px-4 lg:py-2 bg-amber-600 text-white rounded-lg text-[9px] lg:text-xs font-black uppercase tracking-wider hover:bg-amber-700 transition-colors shadow-sm order-1"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  Exportar Agora
+                  Backup
                 </button>
+                <div className="flex items-center gap-1.5 lg:gap-3 order-2">
+                  <div className="w-6 h-6 lg:w-10 lg:h-10 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
+                    <AlertCircle className="w-3.5 h-3.5 lg:w-5 lg:h-5" />
+                  </div>
+                  <h4 className="text-[10px] lg:text-sm font-bold text-amber-900">Backup manual pendente</h4>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -347,8 +354,48 @@ export default function App() {
           </AnimatePresence>
         </main>
 
-        <footer className="p-8 text-center text-gray-400 text-xs border-t border-gray-100 bg-white/50">
-          &copy; 2026 Dashboard Pessoal. Todos os direitos reservados.
+        <footer className="p-4 lg:p-8 border-t border-gray-100 bg-white/50">
+          <div className="max-w-7xl mx-auto flex flex-col lg:flex-row lg:justify-center items-start lg:items-center gap-4">
+            <div className="flex lg:hidden gap-2 mb-2">
+              <button 
+                onClick={() => {
+                  exportData();
+                  setRefreshKey(prev => prev + 1);
+                }}
+                className="text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 bg-gray-50 text-gray-500 rounded-md active:scale-95 transition-all border border-gray-100"
+              >
+                exportar xml
+              </button>
+              <button 
+                onClick={() => document.getElementById('footer-import-xml')?.click()}
+                className="text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 bg-gray-50 text-gray-500 rounded-md active:scale-95 transition-all border border-gray-100"
+              >
+                importar xml
+              </button>
+              <input 
+                id="footer-import-xml"
+                type="file"
+                accept=".json,.xml"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const success = await importData(file);
+                    if (success) {
+                      setFeedback({ message: 'Dados importados com sucesso!', type: 'success' });
+                      setRefreshKey(prev => prev + 1);
+                    } else {
+                      setFeedback({ message: 'Falha ao importar dados.', type: 'error' });
+                    }
+                  }
+                }}
+              />
+            </div>
+            <p className="text-[7px] lg:text-xs text-gray-400 text-left lg:text-center w-full">
+              <span className="lg:hidden">&copy; 2026 Desenvolvido por TráfegON. Todos os direitos reservados.</span>
+              <span className="hidden lg:inline">&copy; 2026 Dashboard Pessoal. Todos os direitos reservados.</span>
+            </p>
+          </div>
         </footer>
       </div>
     </div>

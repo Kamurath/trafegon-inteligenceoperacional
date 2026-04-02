@@ -3,7 +3,7 @@ import { motion, AnimatePresence, Reorder } from 'motion/react';
 import { Task, AppSettings } from '../types';
 import { loadTasks, saveTasks } from '../lib/taskUtils';
 import { loadSettings } from '../lib/settingsUtils';
-import { X, Trash2, Edit2, Check, GripVertical, Plus, Filter, MoreVertical, ChevronRight, ChevronLeft } from 'lucide-react';
+import { X, Trash2, Edit2, Check, GripVertical, Plus, Filter, MoreVertical, ChevronRight, ChevronLeft, ChevronUp, ChevronDown } from 'lucide-react';
 import { getContrastColor } from '../constants';
 
 interface PautaPageProps {
@@ -21,6 +21,8 @@ export const PautaPage: React.FC<PautaPageProps> = ({ searchQuery, refreshKey })
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const longPressTimer = React.useRef<NodeJS.Timeout | null>(null);
+  const [isReordering, setIsReordering] = useState(false);
   const [tempTask, setTempTask] = useState<Task | null>(null);
 
   const formatDate = (dateStr: string) => {
@@ -252,23 +254,30 @@ export const PautaPage: React.FC<PautaPageProps> = ({ searchQuery, refreshKey })
   };
 
   const handleToggleStatus = (id: string) => {
-    setTasks(
-      tasks.map((t) => {
-        if (t.id !== id) return t;
-        const newStatus = t.status === 'Concluído' ? 'Em andamento' : 'Concluído';
-        let newEntrega = t.entrega;
-        let newOriginalEntrega = t.originalEntrega;
+    const updatedTasks = tasks.map((t) => {
+      if (t.id !== id) return t;
+      const newStatus = t.status === 'Concluído' ? 'Em andamento' : 'Concluído';
+      let newEntrega = t.entrega;
+      let newOriginalEntrega = t.originalEntrega;
 
-        if (newStatus === 'Concluído') {
-          newOriginalEntrega = t.entrega;
-          newEntrega = new Date().toISOString();
-        } else if (newStatus === 'Em andamento' && t.originalEntrega) {
-          newEntrega = t.originalEntrega;
-        }
-        
-        return { ...t, status: newStatus as any, entrega: newEntrega, originalEntrega: newOriginalEntrega };
-      })
-    );
+      if (newStatus === 'Concluído') {
+        newOriginalEntrega = t.entrega;
+        newEntrega = new Date().toISOString();
+      } else if (newStatus === 'Em andamento' && t.originalEntrega) {
+        newEntrega = t.originalEntrega;
+      }
+      
+      return { ...t, status: newStatus as any, entrega: newEntrega, originalEntrega: newOriginalEntrega };
+    });
+
+    // Reorder: move completed tasks to the end
+    const sortedTasks = [...updatedTasks].sort((a, b) => {
+      if (a.status === 'Concluído' && b.status !== 'Concluído') return 1;
+      if (a.status !== 'Concluído' && b.status === 'Concluído') return -1;
+      return 0;
+    });
+
+    setTasks(sortedTasks);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -298,23 +307,67 @@ export const PautaPage: React.FC<PautaPageProps> = ({ searchQuery, refreshKey })
     setIsModalOpen(false);
   };
 
+  const groupedTasks = useMemo(() => {
+    const groups: { [key: string]: Task[] } = {};
+    
+    filteredTasks.forEach(task => {
+      const dateStr = task.entrega;
+      if (!dateStr) {
+        const key = 'Sem Data';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(task);
+        return;
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      let taskDate: Date;
+      if (dateStr.includes('T')) {
+        taskDate = new Date(dateStr);
+      } else {
+        taskDate = new Date(dateStr + 'T00:00:00');
+      }
+      
+      const compareDate = new Date(taskDate);
+      compareDate.setHours(0, 0, 0, 0);
+
+      let key = '';
+      if (compareDate.getTime() === today.getTime()) {
+        key = 'Tarefas de Hoje';
+      } else if (compareDate.getTime() === tomorrow.getTime()) {
+        key = 'Tarefas de Amanhã';
+      } else {
+        key = taskDate.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+      }
+
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(task);
+    });
+
+    return groups;
+  }, [filteredTasks]);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="space-y-6 px-2"
+      className="space-y-6 px-2 pb-20"
     >
       {/* Filters */}
-      <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-2 px-2">
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-2 px-2">
         {/* 1. Em andamento */}
         {settings.statusPauta.filter(s => s.name === 'Em andamento').map(s => (
           <button
             key={s.id}
             onClick={() => setFilter(s.name)}
-            className={`px-6 py-1.5 rounded-full text-xs font-bold shadow-sm transition-all ${
+            className={`px-4 py-1 rounded-full text-[10px] font-bold shadow-sm transition-all whitespace-nowrap ${
               filter === s.name
                 ? 'shadow-md'
-                : 'bg-white text-gray-400 border border-gray-100 hover:bg-gray-50'
+                : 'bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
             style={filter === s.name ? { backgroundColor: s.color, color: getContrastColor(s.color) } : {}}
           >
@@ -327,10 +380,10 @@ export const PautaPage: React.FC<PautaPageProps> = ({ searchQuery, refreshKey })
           <button
             key={s.id}
             onClick={() => setFilter(s.name)}
-            className={`px-6 py-1.5 rounded-full text-xs font-bold shadow-sm transition-all ${
+            className={`px-4 py-1 rounded-full text-[10px] font-bold shadow-sm transition-all whitespace-nowrap ${
               filter === s.name
                 ? 'shadow-md'
-                : 'bg-white text-gray-400 border border-gray-100 hover:bg-gray-50'
+                : 'bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
             style={filter === s.name ? { backgroundColor: s.color, color: getContrastColor(s.color) } : {}}
           >
@@ -341,10 +394,10 @@ export const PautaPage: React.FC<PautaPageProps> = ({ searchQuery, refreshKey })
         {/* 3. Todos */}
         <button
           onClick={() => setFilter('Todos')}
-          className={`px-6 py-1.5 rounded-full text-xs font-bold shadow-sm transition-all ${
+          className={`px-4 py-1 rounded-full text-[10px] font-bold shadow-sm transition-all whitespace-nowrap ${
             filter === 'Todos'
-              ? 'bg-[#050714] text-white'
-              : 'bg-white text-gray-400 border border-gray-100 hover:bg-gray-50'
+              ? 'bg-[#050714] dark:bg-white dark:text-[#050714] text-white'
+              : 'bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
           }`}
         >
           Todos
@@ -430,303 +483,169 @@ export const PautaPage: React.FC<PautaPageProps> = ({ searchQuery, refreshKey })
         </div>
 
         {/* Rows */}
-        <Reorder.Group axis="y" values={filteredTasks} onReorder={handleReorder} className="space-y-4 lg:space-y-2">
-          {filteredTasks.map((task, index) => {
-            const isEditing = editingRowId === task.id;
-            const currentTask = isEditing && tempTask ? tempTask : task;
-
-            return (
-              <Reorder.Item 
-                key={task.id} 
-                value={task}
-                className={`flex flex-col lg:grid lg:grid-cols-[40px_3fr_0.8fr_0.8fr_0.8fr_0.8fr_0.4fr_80px] gap-2 items-stretch group transition-all p-0 lg:p-0 bg-white dark:bg-gray-900 lg:bg-transparent rounded-2xl lg:rounded-none border lg:border-none border-gray-100 dark:border-gray-800 shadow-sm lg:shadow-none overflow-hidden ${
-                  isEditing ? 'bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500/20' : ''
-                }`}
+        <div className="lg:hidden space-y-6">
+          {Object.entries(groupedTasks).map(([groupName, groupTasks]: [string, Task[]]) => (
+            <div key={groupName} className="space-y-3">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 px-2 flex items-center gap-2">
+                <div className="w-1 h-1 bg-blue-500 rounded-full" />
+                {groupName}
+              </h3>
+              <Reorder.Group 
+                axis="y" 
+                values={groupTasks} 
+                onReorder={(newGroupTasks) => {
+                  // Find the indices of the tasks in the original array and update them
+                  const newTasks = [...tasks];
+                  newGroupTasks.forEach((task, i) => {
+                    const oldIndex = tasks.findIndex(t => t.id === task.id);
+                    const targetIndex = tasks.findIndex(t => t.id === groupTasks[i].id);
+                    if (oldIndex !== -1 && targetIndex !== -1) {
+                      newTasks[targetIndex] = task;
+                    }
+                  });
+                  setTasks(newTasks);
+                }}
+                className="space-y-2"
               >
-                {/* Desktop Drag Handle */}
-                <div className="hidden lg:flex items-center justify-center bg-white/5 dark:bg-white/10 border border-gray-100 dark:border-gray-800 rounded-l-xl cursor-grab active:cursor-grabbing group-hover:bg-gray-50 dark:group-hover:bg-gray-800/50 transition-colors">
-                  <GripVertical className="w-4 h-4 text-gray-300 group-hover:text-gray-400" />
-                </div>
+                {groupTasks.map((task) => {
+                  const index = tasks.findIndex(t => t.id === task.id);
+                  
+                  const handleTouchStart = () => {
+                    if (isReordering) return;
+                    longPressTimer.current = setTimeout(() => {
+                      setIsReordering(true);
+                      if (navigator.vibrate) navigator.vibrate(50);
+                    }, 2000);
+                  };
 
-                {/* Mobile Header (Position and Actions) */}
-                <div className="flex lg:hidden items-center justify-between p-4 bg-[#050714] dark:bg-black text-white">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-[#3B82F6] text-white text-[10px] font-black px-2 py-0.5 rounded-sm">
-                      {(index + 1).toString().padStart(2, '0')}
-                    </div>
-                    <span className="text-sm font-bold truncate max-w-[200px]">{task.title}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleModalEdit(task)}
-                      className="p-2 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => setDeletingId(task.id)}
-                      className="p-2 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
+                  const handleTouchEnd = () => {
+                    if (longPressTimer.current) {
+                      clearTimeout(longPressTimer.current);
+                      longPressTimer.current = null;
+                    }
+                  };
 
-                {/* Desktop Task Title (Hidden on Mobile) */}
-                <div className="hidden lg:flex bg-[#050714] dark:bg-black text-white px-4 py-3 text-sm font-medium items-center min-w-0 rounded-xl lg:rounded-none">
-                  {isEditing ? (
-                    <input
-                      autoFocus
-                      type="text"
-                      value={currentTask.title}
-                      onChange={(e) => handleInlineChange('title', e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit()}
-                      className="w-full bg-transparent border-none outline-none text-white placeholder:text-gray-500"
-                    />
-                  ) : (
-                    <div className="cursor-text w-full break-words" onClick={() => handleEditTask(task)}>
-                      {task.title}
-                    </div>
-                  )}
-                </div>
-                
-                {/* Content Area */}
-                <div className="p-4 lg:p-0 lg:contents">
-                  <div className="grid grid-cols-1 lg:contents gap-3">
-                    {/* Mobile Details List */}
-                    <div className="lg:hidden space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase text-gray-400">Unidade</span>
-                        <div 
-                          className="px-3 py-1 rounded-full text-[10px] font-bold"
-                          style={{ 
-                            backgroundColor: getUnitColor(currentTask.unidade),
-                            color: getContrastColor(getUnitColor(currentTask.unidade))
-                          }}
-                        >
-                          {currentTask.unidade}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase text-gray-400">Solicitante</span>
-                        <div 
-                          className="px-3 py-1 rounded-full text-[10px] font-bold"
-                          style={{ 
-                            backgroundColor: getSolicitanteColor(currentTask.solicitante),
-                            color: getContrastColor(getSolicitanteColor(currentTask.solicitante))
-                          }}
-                        >
-                          {currentTask.solicitante}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase text-gray-400">Status</span>
-                        <button
-                          onClick={() => handleToggleStatus(task.id)}
-                          className="px-3 py-1 rounded-full text-[10px] font-bold transition-all"
-                          style={{ 
-                            backgroundColor: getStatusColor(task.status),
-                            color: getContrastColor(getStatusColor(task.status))
-                          }}
-                        >
-                          {task.status}
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase text-gray-400">Entrega</span>
-                        <div 
-                          className={`px-3 py-1 rounded-full text-[10px] font-bold ${
-                            getDeliveryStyle(task.entrega, task.status)
-                          }`}
-                        >
-                          {formatDate(task.entrega)}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Desktop Cells (Hidden on Mobile) */}
-                    <div 
-                      className="hidden lg:flex border border-gray-100 dark:border-gray-800 items-center justify-center text-[10px] lg:text-xs font-bold rounded-lg py-2 px-2"
-                      style={{ 
-                        backgroundColor: getUnitColor(currentTask.unidade),
-                        color: getContrastColor(getUnitColor(currentTask.unidade))
+                  return (
+                    <Reorder.Item 
+                      key={task.id}
+                      value={task}
+                      drag={isReordering ? "y" : false}
+                      className={`bg-white dark:bg-gray-900 rounded-xl border shadow-sm overflow-hidden active:scale-[0.98] transition-all touch-none ${
+                        isReordering ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-gray-100 dark:border-gray-800'
+                      }`}
+                      onClick={() => {
+                        if (isReordering) {
+                          setIsReordering(false);
+                        } else {
+                          handleModalEdit(task);
+                        }
                       }}
+                      onPointerDown={handleTouchStart}
+                      onPointerUp={handleTouchEnd}
+                      onPointerLeave={handleTouchEnd}
                     >
-                      {isEditing ? (
-                        <select
-                          value={currentTask.unidade}
-                          onChange={(e) => handleInlineChange('unidade', e.target.value)}
-                          className="w-full bg-transparent border-none outline-none text-center cursor-pointer"
-                          style={{ color: 'inherit' }}
-                        >
-                          {settings.unidades.map(u => <option key={u.id} value={u.name} className="text-black">{u.name}</option>)}
-                        </select>
-                      ) : (
-                        <div className="cursor-pointer w-full text-center" onClick={() => handleEditTask(task)}>
-                          {task.unidade}
-                        </div>
-                      )}
-                    </div>
-
-                    <div 
-                      className="hidden lg:flex border border-gray-100 dark:border-gray-800 items-center justify-center text-[10px] lg:text-xs font-medium rounded-lg py-2 px-2"
-                      style={{ 
-                        backgroundColor: getSolicitanteColor(currentTask.solicitante),
-                        color: getContrastColor(getSolicitanteColor(currentTask.solicitante))
-                      }}
-                    >
-                      {isEditing ? (
-                        <select
-                          value={currentTask.solicitante}
-                          onChange={(e) => handleInlineChange('solicitante', e.target.value)}
-                          className="w-full bg-transparent border-none outline-none text-center cursor-pointer"
-                          style={{ color: 'inherit' }}
-                        >
-                          {settings.solicitantes.map(s => <option key={s.id} value={s.name} className="text-black">{s.name}</option>)}
-                        </select>
-                      ) : (
-                        <div className="cursor-text w-full text-center" onClick={() => handleEditTask(task)}>
-                          {task.solicitante}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="hidden lg:flex bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 items-center justify-center p-1 rounded-lg">
-                      {isEditing ? (
-                        <select
-                          value={currentTask.status}
-                          onChange={(e) => handleInlineChange('status', e.target.value)}
-                          className="w-full py-1.5 rounded-lg text-[10px] font-bold text-center appearance-none cursor-pointer outline-none"
-                          style={{ 
-                            backgroundColor: getStatusColor(currentTask.status),
-                            color: getContrastColor(getStatusColor(currentTask.status))
-                          }}
-                        >
-                          {settings.statusPauta.map(s => <option key={s.id} value={s.name} className="text-black">{s.name}</option>)}
-                        </select>
-                      ) : (
-                        <button
-                          onClick={() => handleToggleStatus(task.id)}
-                          className="w-full py-1.5 rounded-lg text-[10px] font-bold text-center transition-colors"
-                          style={{ 
-                            backgroundColor: getStatusColor(task.status),
-                            color: getContrastColor(getStatusColor(task.status))
-                          }}
-                        >
-                          {task.status}
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="hidden lg:flex bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 items-center justify-center p-1 rounded-lg gap-1">
-                      {isEditing ? (
-                        <>
-                          <input
-                            type="date"
-                            value={currentTask.entrega.split('T')[0]}
-                            onChange={(e) => {
-                              const time = currentTask.entrega.includes('T') ? currentTask.entrega.split('T')[1] : '';
-                              handleInlineChange('entrega', e.target.value + (time ? 'T' + time : ''));
-                            }}
-                            onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit()}
-                            className={`w-full py-1.5 rounded-lg text-[10px] font-bold text-center bg-transparent border-none outline-none ${
-                              getDeliveryStyle(currentTask.entrega, currentTask.status)
-                            }`}
-                          />
-                        </>
-                      ) : (
-                        <div 
-                          onClick={() => handleEditTask(task)}
-                          className={`w-full py-1.5 rounded-lg text-[10px] font-bold text-center cursor-text ${
-                            getDeliveryStyle(task.entrega, task.status)
-                          }`}
-                        >
-                          {formatDate(task.entrega)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Desktop Position */}
-                  <div className="hidden lg:flex bg-[#3B82F6] text-white items-center justify-center text-xs font-bold py-1 px-1">
-                    <div className="w-full text-center">
-                      {(index + 1).toString().padStart(2, '0')}
-                    </div>
-                  </div>
-
-                  {/* Desktop Actions */}
-                  <div className="hidden lg:flex bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 items-center justify-center gap-2 rounded-r-xl py-3 px-2">
-                    {isEditing ? (
-                      <>
-                        <button
-                          onClick={saveInlineEdit}
-                          className="p-1.5 bg-green-50 text-green-600 rounded-full hover:bg-green-100 transition-colors"
-                          title="Salvar"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={cancelInlineEdit}
-                          className="p-1.5 bg-gray-50 text-gray-400 rounded-full hover:bg-gray-100 transition-colors"
-                          title="Cancelar"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => handleModalEdit(task)}
-                          className="p-1.5 hover:bg-gray-100 rounded-full text-gray-400 hover:text-blue-500 transition-colors"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        {deletingId === task.id ? (
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleDeleteTask(task.id)}
-                              className="p-1.5 bg-red-50 text-red-600 rounded-full hover:bg-red-100 transition-colors"
-                              title="Confirmar"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => setDeletingId(null)}
-                              className="p-1.5 bg-gray-50 text-gray-400 rounded-full hover:bg-gray-100 transition-colors"
-                              title="Cancelar"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
+                      <div className="p-2 flex gap-2.5">
+                        {/* Position Indicator */}
+                        <div className="flex-shrink-0">
+                          <div className="w-7 h-7 bg-[#007bff] dark:bg-[#0056b3] text-white rounded-lg flex items-center justify-center text-[10px] font-black shadow-sm">
+                            {(index + 1).toString().padStart(2, '0')}
                           </div>
-                        ) : (
-                          <button
-                            onClick={() => setDeletingId(task.id)}
-                            className="p-1.5 hover:bg-gray-100 rounded-full text-gray-400 hover:text-red-500 transition-colors"
-                            title="Excluir"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
+                        </div>
 
-                {/* Mobile Deletion Confirmation */}
-                {deletingId === task.id && (
-                  <div className="lg:hidden p-4 bg-red-50 dark:bg-red-900/20 border-t border-red-100 dark:border-red-900/30">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-red-600 dark:text-red-400">Excluir tarefa?</span>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleDeleteTask(task.id)} className="px-4 py-1.5 bg-red-600 text-white text-[10px] font-bold rounded-lg">Sim, excluir</button>
-                        <button onClick={() => setDeletingId(null)} className="px-4 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[10px] font-bold rounded-lg">Não</button>
+                        {/* Content */}
+                        <div className="flex-1 min-w-0 space-y-0.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="text-[10px] font-bold text-gray-900 dark:text-white leading-tight break-words">
+                              {task.title}
+                            </h4>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              {isReordering && (
+                                <GripVertical className="w-3 h-3 text-blue-500" />
+                              )}
+                              {!isReordering && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setDeletingId(task.id); }}
+                                  className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
+                                >
+                                  <Trash2 className="w-2.5 h-2.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 text-[6.5px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                            <span 
+                              className="px-1 py-0.5 rounded"
+                              style={{ 
+                                backgroundColor: getUnitColor(task.unidade),
+                                color: getContrastColor(getUnitColor(task.unidade))
+                              }}
+                            >
+                              {task.unidade}
+                            </span>
+                            <span>|</span>
+                            <span 
+                              className="px-1 py-0.5 rounded"
+                              style={{ 
+                                backgroundColor: getSolicitanteColor(task.solicitante),
+                                color: getContrastColor(getSolicitanteColor(task.solicitante))
+                              }}
+                            >
+                              {task.solicitante}
+                            </span>
+                            <span>|</span>
+                            <span 
+                              className="px-1 py-0.5 rounded"
+                              style={{ 
+                                backgroundColor: getStatusColor(task.status),
+                                color: getContrastColor(getStatusColor(task.status))
+                              }}
+                            >
+                              {task.status}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-0.5 border-t border-gray-50 dark:border-gray-800">
+                            <div className="flex gap-2">
+                              {isReordering && (
+                                <span className="text-[6.5px] font-black uppercase tracking-widest text-blue-600">
+                                  Arraste para mover
+                                </span>
+                              )}
+                            </div>
+                            <div 
+                              className={`px-1 py-0.5 rounded-full text-[6.5px] font-black uppercase tracking-widest ${
+                                getDeliveryStyle(task.entrega, task.status)
+                              }`}
+                            >
+                              {formatDate(task.entrega)}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                )}
-              </Reorder.Item>
-            );
-          })}
+
+                      {/* Deletion Confirmation */}
+                      {deletingId === task.id && (
+                        <div className="p-4 bg-red-50 dark:bg-red-900/20 border-t border-red-100 dark:border-red-900/30">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">Excluir tarefa?</span>
+                            <div className="flex gap-2">
+                              <button onClick={() => handleDeleteTask(task.id)} className="px-4 py-1.5 bg-red-600 text-white text-[9px] font-black uppercase tracking-widest rounded-lg">Sim</button>
+                              <button onClick={() => setDeletingId(null)} className="px-4 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[9px] font-black uppercase tracking-widest rounded-lg">Não</button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </Reorder.Item>
+                  );
+                })}
+              </Reorder.Group>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop Rows */}
+        <Reorder.Group axis="y" values={filteredTasks} onReorder={handleReorder} className="hidden lg:block space-y-2">
 
           {/* Add Task Button Row */}
           <div className="hidden lg:grid grid-cols-[40px_3fr_0.8fr_0.8fr_0.8fr_0.8fr_0.4fr_80px] gap-2 items-stretch">
