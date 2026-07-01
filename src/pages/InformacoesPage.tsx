@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UnitInfo } from '../types';
-import { loadUnitInfo, saveUnitInfo, OFFICIAL_UNITS } from '../lib/infoUtils';
-import { Edit2, Check, X, ExternalLink } from 'lucide-react';
+import { loadUnitInfo, saveUnitInfo, loadDynamicUnits, DynamicUnit } from '../lib/infoUtils';
+import { Edit2, Check, X, ExternalLink, Settings } from 'lucide-react';
+import { UnitManagementModal } from '../components/UnitManagementModal';
 
 const InfoRow: React.FC<{ 
   label: string; 
@@ -48,20 +49,42 @@ interface InformacoesPageProps {
 
 export const InformacoesPage: React.FC<InformacoesPageProps> = ({ refreshKey }) => {
   const [unitsData, setUnitsData] = useState<Record<string, UnitInfo>>({});
+  const [units, setUnits] = useState<DynamicUnit[]>([]);
   const [selectedUnitId, setSelectedUnitId] = useState('EL - ARA');
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<UnitInfo | null>(null);
+  const [isManageModalOpen, setIsManageModalOpen] = useState(false);
 
-  useEffect(() => {
+  const loadAllData = () => {
+    const dynamicUnits = loadDynamicUnits();
+    setUnits(dynamicUnits);
     const data = loadUnitInfo();
     setUnitsData(data);
+    
+    // Ensure selected unit still exists
+    if (dynamicUnits.length > 0) {
+      const selectedExists = dynamicUnits.some(u => `EL - ${u.prefix}` === selectedUnitId);
+      if (!selectedExists) {
+        setSelectedUnitId(`EL - ${dynamicUnits[0].prefix}`);
+        setIsEditing(false);
+      }
+    } else {
+      setSelectedUnitId('');
+      setIsEditing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAllData();
   }, [refreshKey]);
 
   const selectedUnit = unitsData[selectedUnitId];
 
   const handleStartEdit = () => {
-    setEditData({ ...selectedUnit });
-    setIsEditing(true);
+    if (selectedUnit) {
+      setEditData({ ...selectedUnit });
+      setIsEditing(true);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -70,7 +93,7 @@ export const InformacoesPage: React.FC<InformacoesPageProps> = ({ refreshKey }) 
   };
 
   const handleSaveEdit = () => {
-    if (editData) {
+    if (editData && selectedUnitId) {
       const newData = { ...unitsData, [selectedUnitId]: editData };
       setUnitsData(newData);
       saveUnitInfo(newData);
@@ -85,7 +108,9 @@ export const InformacoesPage: React.FC<InformacoesPageProps> = ({ refreshKey }) 
     }
   };
 
-  if (!selectedUnit) return null;
+  const handleUnitsUpdated = () => {
+    loadAllData();
+  };
 
   const displayData = isEditing && editData ? editData : selectedUnit;
 
@@ -95,140 +120,177 @@ export const InformacoesPage: React.FC<InformacoesPageProps> = ({ refreshKey }) 
       animate={{ opacity: 1 }}
       className="space-y-6 px-2 pb-10"
     >
-      {/* Unit Selection */}
+      {/* Unit Selection & Management Header */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-hide -mx-2 px-2 snap-x snap-mandatory">
-        {OFFICIAL_UNITS.map((unit) => (
-          <button
-            key={unit.id}
-            onClick={() => {
-              setSelectedUnitId(unit.id);
-              setIsEditing(false);
-            }}
-            className={`px-3 py-1 rounded-full text-[9px] font-bold transition-all border whitespace-nowrap snap-start ${
-              selectedUnitId === unit.id
-                ? 'bg-[#3B82F6] text-white border-[#3B82F6]'
-                : 'bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-            }`}
-          >
-            {unit.id}
-          </button>
-        ))}
+        {units.map((unit) => {
+          const unitId = `EL - ${unit.prefix}`;
+          return (
+            <button
+              key={unit.prefix}
+              onClick={() => {
+                setSelectedUnitId(unitId);
+                setIsEditing(false);
+              }}
+              className={`px-3 py-1 rounded-full text-[9px] font-bold transition-all border whitespace-nowrap snap-start ${
+                selectedUnitId === unitId
+                  ? 'bg-[#3B82F6] text-white border-[#3B82F6]'
+                  : 'bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+              }`}
+            >
+              {unitId}
+            </button>
+          );
+        })}
+        <button
+          onClick={() => setIsManageModalOpen(true)}
+          className="px-3 py-1 bg-[#FDBA74] hover:bg-orange-400 text-[#050714] rounded-full text-[9px] font-bold transition-all border border-orange-200 dark:border-orange-950 flex items-center gap-1 whitespace-nowrap snap-start shadow-sm"
+          title="Gerenciar Unidades"
+        >
+          <Settings className="w-3 h-3" /> Gerenciar Unidades
+        </button>
       </div>
 
-      {/* Unit Header */}
-      <div className="relative group">
-        <div className="bg-[#050714] dark:bg-black text-white py-3 px-4 rounded-lg text-left lg:text-center text-xs font-bold tracking-widest uppercase">
-          {selectedUnit.name}
+      {units.length === 0 ? (
+        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-8 rounded-2xl text-center space-y-3">
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Nenhuma unidade cadastrada.</p>
+          <button
+            onClick={() => setIsManageModalOpen(true)}
+            className="px-4 py-2 bg-[#050714] dark:bg-white dark:text-[#050714] text-white text-xs font-bold rounded-xl hover:opacity-90 transition-all shadow"
+          >
+            Cadastrar Unidade
+          </button>
         </div>
-        {!isEditing && (
-          <button
-            onClick={handleStartEdit}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-white/10 hover:bg-white/20 rounded-md transition-colors text-white"
-            title="Editar Informações"
-          >
-            <Edit2 className="w-3.5 h-3.5" />
-          </button>
-        )}
-      </div>
+      ) : !selectedUnit ? (
+        <div className="text-center p-8 text-sm text-gray-500">Selecione uma unidade acima.</div>
+      ) : (
+        <>
+          {/* Unit Header */}
+          <div className="relative group">
+            <div className="bg-[#050714] dark:bg-black text-white py-3 px-4 rounded-lg text-left lg:text-center text-xs font-bold tracking-widest uppercase">
+              {selectedUnit.name}
+            </div>
+            {!isEditing && (
+              <button
+                onClick={handleStartEdit}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-white/10 hover:bg-white/20 rounded-md transition-colors text-white"
+                title="Editar Informações"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
 
-      {/* Info Blocks */}
-      <div className="space-y-2">
-        <InfoRow 
-          label="Funcionamento" 
-          value={displayData.funcionamento} 
-          isEditing={isEditing}
-          onChange={(v) => updateField('funcionamento', v)}
-        />
-        <InfoRow 
-          label="Contatos" 
-          value={displayData.contatos} 
-          isEditing={isEditing}
-          onChange={(v) => updateField('contatos', v)}
-        />
-        <InfoRow 
-          label="WhatsApp | Bio" 
-          value={displayData.whatsappBio} 
-          isEditing={isEditing}
-          onChange={(v) => updateField('whatsappBio', v)}
-        />
-        <InfoRow 
-          label="WhatsApp | Tráfego" 
-          value={displayData.whatsappTrafego} 
-          isEditing={isEditing}
-          onChange={(v) => updateField('whatsappTrafego', v)}
-        />
+          {/* Info Blocks */}
+          <div className="space-y-2">
+            <InfoRow 
+              label="Funcionamento" 
+              value={displayData.funcionamento} 
+              isEditing={isEditing}
+              onChange={(v) => updateField('funcionamento', v)}
+            />
+            <InfoRow 
+              label="Contatos" 
+              value={displayData.contatos} 
+              isEditing={isEditing}
+              onChange={(v) => updateField('contatos', v)}
+            />
+            <InfoRow 
+              label="WhatsApp | Bio" 
+              value={displayData.whatsappBio} 
+              isEditing={isEditing}
+              onChange={(v) => updateField('whatsappBio', v)}
+            />
+            <InfoRow 
+              label="WhatsApp | Tráfego" 
+              value={displayData.whatsappTrafego} 
+              isEditing={isEditing}
+              onChange={(v) => updateField('whatsappTrafego', v)}
+            />
 
-        <Separator />
+            <Separator />
 
-        <InfoRow 
-          label="CNPJ" 
-          value={displayData.cnpj} 
-          isEditing={isEditing}
-          onChange={(v) => updateField('cnpj', v)}
-        />
-        <InfoRow 
-          label="Razão Social" 
-          value={displayData.razaoSocial} 
-          isEditing={isEditing}
-          onChange={(v) => updateField('razaoSocial', v)}
-        />
-        <InfoRow 
-          label="Endereço" 
-          value={displayData.endereco} 
-          isEditing={isEditing}
-          onChange={(v) => updateField('endereco', v)}
-        />
+            <InfoRow 
+              label="CNPJ" 
+              value={displayData.cnpj} 
+              isEditing={isEditing}
+              onChange={(v) => updateField('cnpj', v)}
+            />
+            <InfoRow 
+              label="Razão Social" 
+              value={displayData.razaoSocial} 
+              isEditing={isEditing}
+              onChange={(v) => updateField('razaoSocial', v)}
+            />
+            <InfoRow 
+              label="Endereço" 
+              value={displayData.endereco} 
+              isEditing={isEditing}
+              onChange={(v) => updateField('endereco', v)}
+            />
 
-        <Separator />
+            <Separator />
 
-        <InfoRow 
-          label="Contato do Sócio" 
-          value={displayData.contatoSocio} 
-          isEditing={isEditing}
-          onChange={(v) => updateField('contatoSocio', v)}
-        />
-        <InfoRow 
-          label="Endereço do Sócio" 
-          value={displayData.enderecoSocio} 
-          isEditing={isEditing}
-          onChange={(v) => updateField('enderecoSocio', v)}
-        />
+            <InfoRow 
+              label="Contato do Sócio" 
+              value={displayData.contatoSocio} 
+              isEditing={isEditing}
+              onChange={(v) => updateField('contatoSocio', v)}
+            />
+            <InfoRow 
+              label="Endereço do Sócio" 
+              value={displayData.enderecoSocio} 
+              isEditing={isEditing}
+              onChange={(v) => updateField('enderecoSocio', v)}
+            />
 
-        <Separator />
+            <Separator />
 
-        <InfoRow 
-          label="Documentos" 
-          value={displayData.documentosLink} 
-          isLink 
-          isEditing={isEditing}
-          onChange={(v) => updateField('documentosLink', v)}
-        />
-      </div>
+            <InfoRow 
+              label="Documentos" 
+              value={displayData.documentosLink} 
+              isLink 
+              isEditing={isEditing}
+              onChange={(v) => updateField('documentosLink', v)}
+            />
+          </div>
 
-      {/* Edit Actions */}
+          {/* Edit Actions */}
+          <AnimatePresence>
+            {isEditing && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                className="fixed bottom-10 right-10 flex gap-3 z-50"
+              >
+                <button
+                  onClick={handleCancelEdit}
+                  className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-full font-bold text-sm shadow-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                >
+                  <X className="w-4 h-4" />
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  className="flex items-center gap-2 px-6 py-3 bg-[#050714] dark:bg-white dark:text-[#050714] text-white rounded-full font-bold text-sm shadow-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition-all"
+                >
+                  <Check className="w-4 h-4" />
+                  Salvar Alterações
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
+      )}
+
+      {/* Unit Management Modal */}
       <AnimatePresence>
-        {isEditing && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-10 right-10 flex gap-3"
-          >
-            <button
-              onClick={handleCancelEdit}
-              className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-full font-bold text-sm shadow-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
-            >
-              <X className="w-4 h-4" />
-              Cancelar
-            </button>
-            <button
-              onClick={handleSaveEdit}
-              className="flex items-center gap-2 px-6 py-3 bg-[#050714] dark:bg-white dark:text-[#050714] text-white rounded-full font-bold text-sm shadow-lg hover:bg-gray-900 dark:hover:bg-gray-100 transition-all"
-            >
-              <Check className="w-4 h-4" />
-              Salvar Alterações
-            </button>
-          </motion.div>
+        {isManageModalOpen && (
+          <UnitManagementModal
+            isOpen={isManageModalOpen}
+            onClose={() => setIsManageModalOpen(false)}
+            onUnitsUpdated={handleUnitsUpdated}
+          />
         )}
       </AnimatePresence>
     </motion.div>

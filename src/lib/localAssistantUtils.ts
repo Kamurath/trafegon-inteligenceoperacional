@@ -56,6 +56,8 @@ export const BIRTHDAY_STEPS: AssistantStep[] = [
   { field: 'foto', question: 'Deseja adicionar link da foto? (Opcional)', type: 'text', optional: true },
 ];
 
+import { loadDynamicUnits } from './infoUtils';
+
 export const validateInput = (intent: AssistantIntent, step: number, value: string): string | null => {
   const steps = intent === 'task' ? TASK_STEPS : BIRTHDAY_STEPS;
   const currentStep = steps[step];
@@ -66,10 +68,19 @@ export const validateInput = (intent: AssistantIntent, step: number, value: stri
     return 'Este campo é obrigatório.';
   }
 
-  if (currentStep.type === 'select' && currentStep.options) {
-    const match = currentStep.options.find(opt => opt.toLowerCase() === value.toLowerCase().trim());
+  if (currentStep.type === 'select') {
+    let options = currentStep.options || [];
+    if (currentStep.field === 'unidade') {
+      try {
+        const dynamicUnits = loadDynamicUnits();
+        options = dynamicUnits.map(u => u.prefix);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    const match = options.find(opt => opt.toLowerCase() === value.toLowerCase().trim());
     if (!match) {
-      return `Opção inválida. Escolha uma de: ${currentStep.options.join(', ')}`;
+      return `Opção inválida. Escolha uma de: ${options.join(', ')}`;
     }
     return null; // Valid
   }

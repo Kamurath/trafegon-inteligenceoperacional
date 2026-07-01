@@ -3,8 +3,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Aniversariante, AppSettings } from '../types';
 import { loadAniversariantes, saveAniversariantes } from '../lib/birthdayUtils';
 import { loadSettings } from '../lib/settingsUtils';
-import { X, Trash2, Edit2, Check, Cake, Plus, Filter, MoreVertical, ChevronRight, ChevronLeft } from 'lucide-react';
+import { X, Trash2, Edit2, Check, Cake, Plus, Filter, MoreVertical, ChevronRight, ChevronLeft, Settings } from 'lucide-react';
 import { getContrastColor } from '../constants';
+import { loadDynamicUnits, DynamicUnit } from '../lib/infoUtils';
+import { UnitManagementModal } from '../components/UnitManagementModal';
 
 interface AniversariantesPageProps {
   searchQuery: string;
@@ -16,6 +18,8 @@ type FilterType = 'Mês Atual' | 'Pronto' | 'Aguardando' | 'Todos';
 export const AniversariantesPage: React.FC<AniversariantesPageProps> = ({ searchQuery, refreshKey }) => {
   const [birthdays, setBirthdays] = useState<Aniversariante[]>(loadAniversariantes());
   const [settings, setSettings] = useState<AppSettings>(loadSettings());
+  const [units, setUnits] = useState<DynamicUnit[]>(loadDynamicUnits());
+  const [isManageModalOpen, setIsManageModalOpen] = useState(false);
   const [filter, setFilter] = useState<string>('Mês Atual');
   const [unitFilter, setUnitFilter] = useState<string>('Todos');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -47,9 +51,11 @@ export const AniversariantesPage: React.FC<AniversariantesPageProps> = ({ search
 
   useEffect(() => {
     setBirthdays(loadAniversariantes());
+    setUnits(loadDynamicUnits());
     
     const handleSettingsChange = () => {
       setSettings(loadSettings());
+      setUnits(loadDynamicUnits());
     };
     window.addEventListener('settingsChanged', handleSettingsChange);
     return () => window.removeEventListener('settingsChanged', handleSettingsChange);
@@ -267,8 +273,9 @@ export const AniversariantesPage: React.FC<AniversariantesPageProps> = ({ search
           >
             Todos
           </button>
-          {['ARA', 'ST', 'GUS', 'CZ', 'VSA', 'LIV', 'MUR', 'VILH', 'COR', 'FOR', 'MACS', 'MACE'].map(uName => {
-            const u = settings.unidades.find(unit => unit.name === uName) || { name: uName, color: '#FFFFFF' };
+          {units.map(u => {
+            const uName = u.prefix;
+            const settingsUnit = settings.unidades.find(unit => unit.name === uName) || { name: uName, color: '#FFFFFF' };
             return (
               <button
                 key={uName}
@@ -278,12 +285,18 @@ export const AniversariantesPage: React.FC<AniversariantesPageProps> = ({ search
                     ? 'shadow-md'
                     : 'bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
-                style={unitFilter === uName ? { backgroundColor: u.color, color: getContrastColor(u.color) } : {}}
+                style={unitFilter === uName ? { backgroundColor: settingsUnit.color, color: getContrastColor(settingsUnit.color) } : {}}
               >
                 {uName}
               </button>
             );
           })}
+          <button
+            onClick={() => setIsManageModalOpen(true)}
+            className="px-3 py-1 bg-[#FDBA74] hover:bg-orange-400 text-[#050714] rounded-full text-[10px] font-bold transition-all border border-orange-200 dark:border-orange-950 flex items-center gap-1 whitespace-nowrap shadow-sm"
+          >
+            <Settings className="w-3 h-3" /> Gerenciar
+          </button>
         </div>
       </div>
 
@@ -575,7 +588,7 @@ export const AniversariantesPage: React.FC<AniversariantesPageProps> = ({ search
                       className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl outline-none focus:border-blue-500 transition-all text-sm dark:text-white"
                     >
                       <option value="">Selecione uma unidade</option>
-                      {['ARA', 'ST', 'GUS', 'CZ', 'VSA', 'LIV', 'MUR', 'VILH', 'COR', 'FOR', 'MACS', 'MACE'].map(u => <option key={u} value={u}>{u}</option>)}
+                      {units.map(u => <option key={u.prefix} value={u.prefix}>{u.prefix}</option>)}
                     </select>
                   </div>
                   <div className="space-y-1">
@@ -636,6 +649,19 @@ export const AniversariantesPage: React.FC<AniversariantesPageProps> = ({ search
               </form>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+      {/* Unit Management Modal */}
+      <AnimatePresence>
+        {isManageModalOpen && (
+          <UnitManagementModal
+            isOpen={isManageModalOpen}
+            onClose={() => setIsManageModalOpen(false)}
+            onUnitsUpdated={() => {
+              setBirthdays(loadAniversariantes());
+              setUnits(loadDynamicUnits());
+            }}
+          />
         )}
       </AnimatePresence>
     </motion.div>
